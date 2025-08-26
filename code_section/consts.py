@@ -3,4 +3,4 @@ DATA_FILES = [
     "C:\dev\picking-finder\data\simulation_continuous.mat",
     "C:\dev\picking-finder\data\simulation_multisource.mat"
 ]
-SENSOR_NUMBERS_Q1 = 64
+SENSOR_NUMBER_SIZE = 64

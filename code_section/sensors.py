@@ -1,6 +1,6 @@
 import numpy as np
 from typing import Any
-from scipy.signal import correlate
+from scipy.signal import correlate, stft
 from numpy import ndarray, dtype, float64
 
 
@@ -53,7 +53,7 @@ class SensorObj:
 
         return end_break_frame
 
-    def find_break_range(self, sta_group_size=25, lta_group_size=100, threshold=1.70):
+    def find_break_range(self, sta_group_size=30, lta_group_size=90, threshold=1.75):
         """
         Function for calculating break range(first_break, end_break) in signals.
         :param lta_group_size: The group size for LTA calculation.
@@ -66,7 +66,6 @@ class SensorObj:
                                               first_break_frame=first_break_frame,
                                               threshold=threshold/2)
         return first_break_frame, end_break_frame
-
 
     def cross_correlation(self, signal_pattern):
         """
@@ -105,3 +104,32 @@ class SensorObj:
 
         self.data += noise
         return self.data
+
+    def time_to_frequency_domain(self):
+        """
+        Compute FFT magnitude spectrum on the time domain signal.
+
+        Returns:
+        frequency - Frequency bins for FFT.
+        magnitude - Magnitude spectrum (one-sided).
+        """
+        fft_vals = np.fft.rfft(self.data)
+        magnitude = np.abs(fft_vals) / len(self.data)
+        frequency = np.fft.rfftfreq(len(self.data), 1 / self.sampling_rate)
+        return frequency, magnitude
+
+    def get_spectrogram_attribute(self, nperseg=256, noverlap=128):
+        """
+        Compute STFT spectrogram of time domain signal.
+        nperseg : int
+            Window size for STFT (default 256).
+        noverlap : int
+            Overlap between STFT windows (default 128).
+
+        Returns:
+        frequency - STFT frequency bins.
+        time - STFT time bins.
+        magnitude - STFT complex spectrogram.
+        """
+        frequency, time, magnitude = stft(self.data, fs=self.sampling_rate, nperseg=nperseg, noverlap=noverlap, boundary=None)
+        return frequency, time, magnitude

@@ -1,45 +1,18 @@
 import numpy as np
-from itertools import product
-from code.sensors import SensorObj
-from code.consts import DATA_FILES, SENSOR_NUMBERS_Q1
-from code.utils import load_mat_file, plot_seismogram, add_noise, plot_traces_subplots
+from code_section.sensors import SensorObj
+from code_section.consts import DATA_FILES, SENSOR_NUMBER_SIZE
+from code_section.utils.utils import load_mat_file, separate_channels, aic_pick
+from code_section.utils.graph_utils import plot_seismogram, plot_traces_subplots
 
-
-def temp_main(path_file=DATA_FILES[0], sensor_number=0):
-    import tkinter as tk
-    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-    import matplotlib.pyplot as plt
-    import numpy as np
-    # Sample amplitude data
-    g = load_mat_file(mat_path_file=path_file)
-    amplitudes = g['data'][sensor_number]
-    time = np.arange(len(amplitudes))  # Assuming uniform time intervals
-    # Create the main window
-    root = tk.Tk()
-    root.title("Amplitude vs Time")
-    # Create a matplotlib figure
-    fig, ax = plt.subplots(figsize=(12, 7))
-    ax.plot(time, amplitudes, marker='o', linestyle='-', color='blue')
-    ax.set_title('Amplitude vs Time')
-    ax.set_xlabel('Time')
-    ax.set_ylabel('Amplitude')
-    ax.grid(True)
-    # Embed the plot in the tkinter window
-    canvas = FigureCanvasTkAgg(fig, master=root)
-    canvas.draw()
-    canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-    root.mainloop()
-
-
-def main(data_file_path=DATA_FILES[1], noise_type=None, snr_db=0, plot_title="General title"):
-    sensors_data_dict = load_mat_file(mat_path_file=data_file_path)
+def full_picking_algorithm(sensors_data, sensors_geometry_data,
+                           sensors_length, sensors_sample_rate, noise_type="", snr_db=2):
+    assert sensors_length, "Sensors data is empty!"
     sensors_list, signal_pattern = [], None
-    sample_rate = sensors_data_dict['fs'][0][0]
 
-    for sensor_num in range(SENSOR_NUMBERS_Q1):
-        temp_sensor_obj = SensorObj(data=sensors_data_dict['data'][sensor_num],
-                                    sampling_rate=sample_rate,
-                                    geometry_location=sensors_data_dict['geometry'][sensor_num])
+    for sensor_num in range(sensors_length):
+        temp_sensor_obj = SensorObj(data=sensors_data[sensor_num],
+                                    sampling_rate=sensors_sample_rate,
+                                    geometry_location=sensors_geometry_data[sensor_num])
         if sensor_num == 0:
             first_break_frame, end_break_frame = temp_sensor_obj.find_break_range()
             signal_pattern = temp_sensor_obj.data[first_break_frame:end_break_frame]
@@ -49,19 +22,81 @@ def main(data_file_path=DATA_FILES[1], noise_type=None, snr_db=0, plot_title="Ge
             temp_sensor_obj.add_noise(snr_db=snr_db, noise_type=noise_type)
 
         correlation_result = temp_sensor_obj.cross_correlation(signal_pattern)
-        temp_sensor_obj.first_break_time = np.argmax(correlation_result) / sample_rate
+        temp_sensor_obj.first_break_time = np.argmax(correlation_result) / sensors_sample_rate
         print("Sensor number: {} \n The first break is in: {}".
               format(sensor_num + 1, temp_sensor_obj.first_break_time))
         sensors_list.append(temp_sensor_obj)
 
+    return sensors_list
+
+def full_picking_algorithm2(sensors_data, sensors_geometry_data,
+                           sensors_length, sensors_sample_rate, noise_type="", snr_db=2):
+    assert sensors_length, "Sensors data is empty!"
+    sensors_list, signal_pattern = [], None
+
+    for sensor_num in range(sensors_length):
+        temp_sensor_obj = SensorObj(data=sensors_data[sensor_num],
+                                    sampling_rate=sensors_sample_rate,
+                                    geometry_location=sensors_geometry_data[sensor_num])
+        if sensor_num == 0:
+            first_break_frame = int(aic_pick(sensors_data[sensor_num]))
+            end_break_frame = first_break_frame + 450 # figure how to find the end break frame
+            signal_pattern = temp_sensor_obj.data[first_break_frame:end_break_frame]
+            print(f"{sensor_num + 1} - [{first_break_frame}:{end_break_frame}]")
+
+        if noise_type:
+            temp_sensor_obj.add_noise(snr_db=snr_db, noise_type=noise_type)
+
+        correlation_result = temp_sensor_obj.cross_correlation(signal_pattern)
+        temp_sensor_obj.first_break_time = np.argmax(correlation_result) / sensors_sample_rate
+        print("Sensor number: {} \n The first break is in: {}".
+              format(sensor_num + 1, temp_sensor_obj.first_break_time))
+        sensors_list.append(temp_sensor_obj)
+
+    return sensors_list
+
+
+def questions123(data_file_path=DATA_FILES[1], noise_type='', snr_db=0, plot_title="General title"):
+    sensors_data_dict = load_mat_file(mat_path_file=data_file_path)
+    sensors_sample_rate = sensors_data_dict['fs'][0][0]
+    sensors_list = full_picking_algorithm2(sensors_data=sensors_data_dict['data'],
+                                          sensors_sample_rate= sensors_sample_rate,
+                                          sensors_geometry_data=sensors_data_dict['geometry'],
+                                          sensors_length=SENSOR_NUMBER_SIZE, noise_type=noise_type, snr_db=snr_db)
+
     plot_seismogram(sensors_list, plot_title=plot_title)
 
+def questions4(data_file_path=DATA_FILES[2], noise_type='', snr_db=0, plot_title="General title"):
+    sensors_data_dict = load_mat_file(mat_path_file=data_file_path)
+    sensors_data = sensors_data_dict['data']
+    sensors_sample_rate = sensors_data_dict['fs'][0][0]
+    full_data_separate_by_channels = []
+    for sensor_num in range(SENSOR_NUMBER_SIZE):
+        channels_durations = separate_channels(SensorObj(data=sensors_data[sensor_num],
+                                                         sampling_rate=sensors_sample_rate))
+        if sensor_num == 0:
+            full_data_separate_by_channels = [[] for _ in range(len(channels_durations))]
 
-for snr_db, noise_type in product([0,10],['white','pink']):
-    main(data_file_path=DATA_FILES[1], noise_type=noise_type, snr_db=snr_db,
-         plot_title="Seismogram with Cross-correlation with {} snr ratio and nosie: {}".format(snr_db, noise_type))
+        for i in range(len(channels_durations)):
+            full_data_separate_by_channels[i].append(sensors_data[i][int(channels_durations[i][0] * sensors_sample_rate):
+                                                                     int(channels_durations[i][1]*sensors_sample_rate)])
+    full_data_including_picking = []
+    for i in range(len(full_data_separate_by_channels)):
+         full_data_including_picking.append(full_picking_algorithm(sensors_data=full_data_separate_by_channels[i],
+                                              sensors_sample_rate= sensors_sample_rate,
+                                              sensors_geometry_data=sensors_data_dict['geometry'],
+                                              sensors_length=SENSOR_NUMBER_SIZE, noise_type=noise_type, snr_db=snr_db))
 
-# temp_main(path_file=DATA_FILES[1], sensor_number=0)
+    # TODO: Change the plot_seismogram for print the combine channels
+    plot_seismogram(full_data_including_picking, plot_title=plot_title)
+
+questions123(noise_type='pink', snr_db=0, plot_title="Seismogram with AIC SNR=0db(pink noise)")
+# Part 1:
+# for snr_db, noise_type in product([0,10],['','white','pink']):
+#     main(data_file_path=DATA_FILES[1], noise_type=noise_type, snr_db=snr_db,
+#          plot_title="Seismogram with Cross-correlation with {} snr ratio and nosie: {}".format(snr_db, noise_type))
+
+
 # for i in [0, 10]:
 #     nosie_data = add_noise(load_mat_file(mat_path_file=DATA_FILES[1])['data'], snr_db=i, noise_type='pink')
-#     plot_traces_subplots(nosie_data, 2000, n_show=None)
+#     plot_traces_subplots(load_mat_file(mat_path_file=DATA_FILES[2])['data'], 2000, n_show=None)

@@ -1,61 +1,29 @@
 import numpy as np
 import scipy.io as sio
-import matplotlib.pyplot as plt
 
+from code_section.sensors import SensorObj
+
+def aic_pick(x):
+    """Return index of AIC minimum (classic variance-based AIC)."""
+    N = len(x)
+    # work on demeaned signal
+    y = x - np.mean(x)
+    cumsq = np.cumsum(y**2)
+    total = cumsq[-1]
+    eps = 1e-20
+
+    k = np.arange(1, N-1)
+    var1 = cumsq[k-1] / k
+    var2 = (total - cumsq[k-1]) / (N - k)
+    var1 = np.maximum(var1, eps)
+    var2 = np.maximum(var2, eps)
+    aic = k * np.log(var1) + (N - k - 1) * np.log(var2)
+
+    idx = np.argmin(aic) + 1  # shift because k starts at 1
+    return idx
 
 def load_mat_file(mat_path_file) -> dict:
     return sio.loadmat(mat_path_file)
-
-def plot_seismogram(sensors_list, plot_title="Title"):
-    """
-    Function for plotting seismogram.
-    """
-    assert len(sensors_list) > 0, "sensors_list is empty"
-    dt = 1.0 / sensors_list[0].sampling_rate
-    time = np.arange(len(sensors_list[0].data)) * dt
-
-    full_data = [sensor_i.data for sensor_i in sensors_list]
-
-    plt.figure(figsize=(14, 6))
-    scale = 0.5 / np.max(np.abs(full_data))
-    offset = np.arange(len(sensors_list)) * 1.0
-
-    for i in range(len(sensors_list)):
-        trace = sensors_list[i].data
-        plt.plot(offset[i] + trace * scale, time, 'k')
-        # first-break
-        plt.plot(offset[i], sensors_list[i].first_break_time, 'ro')
-
-    plt.gca().invert_yaxis()
-    plt.xlabel("Trace Number")
-    plt.ylabel("Time (s)")
-    plt.title(plot_title)
-    plt.show()
-
-def plot_traces_subplots(full_data, fs, n_show=None):
-    """
-    Function for plotting traces of all the sensors samples according to [Time * Amplitude]
-    """
-    n_traces, n_samples = full_data.shape
-    dt = 1.0 / fs
-    time = np.arange(n_samples) * dt
-
-    if n_show is None:
-        n_show = n_traces
-    n_show = min(n_show, n_traces)
-
-    fig, axes = plt.subplots(n_show, 1, figsize=(10, 2*n_show), sharex=True)
-    if n_show == 1:
-        axes = [axes]
-
-    for i in range(n_show):
-        axes[i].plot(time, full_data[i])
-        axes[i].set_ylabel(f"Trace {i+1}")
-        axes[i].grid(True)
-
-    axes[-1].set_xlabel("Time (s)")
-    plt.tight_layout()
-    plt.show()
 
 def add_noise(full_data, snr_db=2, noise_type="white", fs=2000) -> np.ndarray:
     """
@@ -88,7 +56,37 @@ def add_noise(full_data, snr_db=2, noise_type="white", fs=2000) -> np.ndarray:
         data_plus_noise.append(data + noise)
     return np.array(data_plus_noise)
 
+def separate_channels(sensor: SensorObj, threshold_magnitude = 0.052):
+    """
 
+    :return:
+    """
+    frequencies, time_param, magnitude = sensor.get_spectrogram_attribute(nperseg=256, noverlap=128)
+    magnitude = np.abs(magnitude)
+
+    # For each time frame, check if any frequency bin exceeds threshold
+    above_threshold = np.any(magnitude > threshold_magnitude, axis=0)
+
+    ranges = []
+    in_range = False
+    start_time = None
+
+    for i, val in enumerate(above_threshold):
+        if val and not in_range:
+            # Start of new range
+            in_range = True
+            start_time = time_param[i]
+
+        elif not val and in_range:
+            # End of range
+            in_range = False
+            ranges.append((start_time, time_param[i]))
+
+    # If still inside a range at the end
+    if in_range:
+        ranges.append((start_time, time_param[-1]))
+
+    return ranges
 
 # # פונקציה לחישוב שגיאה (RMSE או MAE)
 # def calc_error(gt_signal, test_signal, metric="rmse"):
