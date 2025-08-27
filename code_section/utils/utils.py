@@ -1,5 +1,7 @@
 import numpy as np
 import scipy.io as sio
+from typing import Any, Dict, List
+
 
 from code_section.sensors import SensorObj
 
@@ -87,35 +89,3 @@ def separate_channels(sensor: SensorObj, threshold_magnitude = 0.052):
         ranges.append((start_time, time_param[-1]))
 
     return ranges
-
-# # פונקציה לחישוב שגיאה (RMSE או MAE)
-# def calc_error(gt_signal, test_signal, metric="rmse"):
-#     gt_signal = np.asarray(gt_signal)
-#     test_signal = np.asarray(test_signal)
-#     if metric == "mae":
-#         return np.mean(np.abs(gt_signal - test_signal))
-#     elif metric == "rmse":
-#         return np.sqrt(np.mean((gt_signal - test_signal)**2))
-#     else:
-#         raise ValueError("metric must be 'mae' or 'rmse'")
-#
-# # סימולציה: חקר ביצועים מול SNR
-# def snr_performance_demo(gt_signal, snr_values, metric="rmse", runs_per_snr=10):
-#     errors = []
-#     for snr in snr_values:
-#         run_errors = []
-#         for _ in range(runs_per_snr):
-#             noisy = add_noise_by_snr(gt_signal, snr)
-#             err = calc_error(gt_signal, noisy, metric=metric)
-#             run_errors.append(err)
-#         errors.append(np.mean(run_errors))
-#
-#     # הצגת גרף
-#     plt.figure(figsize=(8, 5))
-#     plt.plot(snr_values, errors, marker='o', color='purple')
-#     plt.gca().invert_xaxis()  # אופציונלי – להראות ירידה בביצועים עם ירידת SNR
-#     plt.title("RMSE כתלות ב-SNR")
-#     plt.xlabel("SNR [dB]")
-#     plt.ylabel("שגיאה (RMSE)")
-#     plt.grid(True)
-#     plt.show()

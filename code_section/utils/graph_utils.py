@@ -88,3 +88,30 @@ def plot_frequency_analysis_multichannel(sensors_list, nperseg=256, noverlap=128
 
     plt.tight_layout()
     plt.show()
+
+def plot_performance_results(results, snr_range, sampling_rate, sensor_index=0):
+    """
+    Plots mean error and std deviation vs SNR for one sensor.
+    """
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sensor_results = results[sensor_index]
+
+    for noise_type, data in sensor_results.items():
+        mean_error_ms = (data['mean'] / sampling_rate) * 1000  # convert samples → ms
+        std_error_ms  = (data['std'] / sampling_rate) * 1000
+
+        ax.errorbar(
+            snr_range,
+            mean_error_ms,
+            yerr=std_error_ms,
+            marker='o',
+            capsize=4,
+            label=f"{noise_type} noise"
+        )
+
+    ax.set_xlabel("SNR (dB)", fontsize=12)
+    ax.set_ylabel("Picking Error (second)", fontsize=12)
+    ax.set_title(f"Performance Results - Sensor number: {sensor_index}", fontsize=14)
+    ax.legend()
+    ax.grid(True, linestyle="--", alpha=0.6)
+    plt.show()
