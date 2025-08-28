@@ -1,0 +1,19 @@
+[project]
+name = "automatic-pick"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Raz",email = "razaviad@g.jct.ac.il"}
+]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "scipy (>=1.16.1,<2.0.0)",
+    "matplotlib (>=3.10.5,<4.0.0)",
+    "numpy (>=2.3.2,<3.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
