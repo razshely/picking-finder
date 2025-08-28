@@ -18,12 +18,16 @@ def plot_seismogram(sensors_list, plot_title="Title"):
     for i in range(len(sensors_list)):
         trace = sensors_list[i].data
         plt.plot(offset[i] + trace * scale, time, 'k')
-        # first-break
-        plt.plot(offset[i], sensors_list[i].first_break_time, 'ro')
+        # first-break(s)
+        if isinstance(sensors_list[i].first_break_time, float):
+            plt.plot(offset[i], sensors_list[i].first_break_time, 'ro')
+        else:
+            for first_break in sensors_list[i].first_break_time:
+                plt.plot(offset[i], first_break, 'ro')
 
     plt.gca().invert_yaxis()
     plt.xlabel("Trace Number")
-    plt.ylabel("Time (s)")
+    plt.ylabel("T (s)")
     plt.title(plot_title)
     plt.show()
 
@@ -64,7 +68,7 @@ def plot_frequency_analysis_multichannel(sensors_list, nperseg=256, noverlap=128
 
     fig, axes = plt.subplots(2, n_show, figsize=(4*n_show, 8))
 
-    if n_show == 1:  # keep axes 2D always
+    if n_show == 1:
         axes = axes.reshape(2, 1)
 
     for i in range(n_show):
@@ -97,8 +101,8 @@ def plot_performance_results(results, snr_range, sampling_rate, sensor_index=0):
     sensor_results = results[sensor_index]
 
     for noise_type, data in sensor_results.items():
-        mean_error_ms = (data['mean'] / sampling_rate) * 1000  # convert samples → ms
-        std_error_ms  = (data['std'] / sampling_rate) * 1000
+        mean_error_ms = (data['mean'] / sampling_rate)  # convert samples → ms
+        std_error_ms  = (data['std'] / sampling_rate)
 
         ax.errorbar(
             snr_range,
@@ -111,7 +115,7 @@ def plot_performance_results(results, snr_range, sampling_rate, sensor_index=0):
 
     ax.set_xlabel("SNR (dB)", fontsize=12)
     ax.set_ylabel("Picking Error (second)", fontsize=12)
-    ax.set_title(f"Performance Results - Sensor number: {sensor_index}", fontsize=14)
+    ax.set_title(f"Performance Results for 100 iteration, Ricker data\nPicking algorithms: AIC picker + STA/LTA + cross correlation\nSensor number: {sensor_index + 1}", fontsize=14)
     ax.legend()
     ax.grid(True, linestyle="--", alpha=0.6)
     plt.show()

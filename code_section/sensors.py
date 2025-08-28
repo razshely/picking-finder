@@ -5,9 +5,11 @@ from numpy import ndarray, dtype, float64
 
 
 class SensorObj:
+    """
+    Class for sensor representing.
+    This class have the all methods and attributes for find and analyze the sensors data.
+    """
     def __init__(self, data, sampling_rate, geometry_location=[0, 0, 0]):
-        if geometry_location is None:
-            geometry_location = [0, 0, 0]
         self.data = (data - np.mean(data)) / np.std(data)
         self.sampling_rate = sampling_rate
         self.time = np.arange(len(data)) / sampling_rate

@@ -1,14 +1,11 @@
 import numpy as np
 import scipy.io as sio
-from typing import Any, Dict, List
-
 
 from code_section.sensors import SensorObj
 
 def aic_pick(x):
-    """Return index of AIC minimum (classic variance-based AIC)."""
+    """Return index(frame) of AIC minimum (classic variance-based AIC)."""
     N = len(x)
-    # work on demeaned signal
     y = x - np.mean(x)
     cumsq = np.cumsum(y**2)
     total = cumsq[-1]
@@ -21,7 +18,7 @@ def aic_pick(x):
     var2 = np.maximum(var2, eps)
     aic = k * np.log(var1) + (N - k - 1) * np.log(var2)
 
-    idx = np.argmin(aic) + 1  # shift because k starts at 1
+    idx = np.argmin(aic) + 1
     return idx
 
 def load_mat_file(mat_path_file) -> dict:
@@ -35,7 +32,6 @@ def add_noise(full_data, snr_db=2, noise_type="white", fs=2000) -> np.ndarray:
     for d in full_data:
         data = np.array(d)
         sig_power = np.mean(data ** 2)
-        # SNR: convert dB → linear
         snr_linear = 10 ** (snr_db / 10)
         noise_power = sig_power / snr_linear
 
@@ -43,13 +39,13 @@ def add_noise(full_data, snr_db=2, noise_type="white", fs=2000) -> np.ndarray:
             noise = np.random.normal(0, np.sqrt(noise_power), len(data))
 
         elif noise_type.lower() == "pink":
-            # Pink noise via frequency-domain shaping (1/sqrt(f))
+            # Pink noise via frequency-domain shaping
             white = np.random.normal(0, 1, len(data))
             fft_vals = np.fft.rfft(white)
             freqs = np.fft.rfftfreq(len(data), 1 / fs)
-            fft_vals /= np.where(freqs == 0, 1, np.sqrt(freqs))  # scale by 1/sqrt(f)
+            fft_vals /= np.where(freqs == 0, 1, np.sqrt(freqs))
             pink = np.fft.irfft(fft_vals, n=len(data))
-            pink = pink / np.std(pink) * np.sqrt(noise_power)  # scale to match power
+            pink = pink / np.std(pink) * np.sqrt(noise_power)
             noise = pink
 
         else:
@@ -60,13 +56,14 @@ def add_noise(full_data, snr_db=2, noise_type="white", fs=2000) -> np.ndarray:
 
 def separate_channels(sensor: SensorObj, threshold_magnitude = 0.052):
     """
-
-    :return:
+    Separate the multi-channels signal to is channels.
+    The function used the spectrogram data for separate the channels:
+        * If the  magnitude of the separated channel is greater than threshold_magnitude the function saved its
+          start time and checks when the end-time the magnitude get smaller than threshold_magnitude.
     """
     frequencies, time_param, magnitude = sensor.get_spectrogram_attribute(nperseg=256, noverlap=128)
     magnitude = np.abs(magnitude)
 
-    # For each time frame, check if any frequency bin exceeds threshold
     above_threshold = np.any(magnitude > threshold_magnitude, axis=0)
 
     ranges = []
@@ -84,7 +81,6 @@ def separate_channels(sensor: SensorObj, threshold_magnitude = 0.052):
             in_range = False
             ranges.append((start_time, time_param[i]))
 
-    # If still inside a range at the end
     if in_range:
         ranges.append((start_time, time_param[-1]))
 
